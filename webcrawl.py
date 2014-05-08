@@ -4,6 +4,7 @@ from bs4 import BeautifulSoup
 import os
 import errno
 import time
+import sqlite3
 
 img_types = ['jpg', 'jpeg', 'png', 'gif', 'tif', 'tiff']
 data_dir = os.path.join(os.path.expanduser('~'), 'webcrawled')
@@ -19,7 +20,9 @@ def download_and_save_file(url, filepath):
         f.write(r.content)
 
 def process_page(url):
+    print "Now processing: " + url
     t = str(int(time.time()))
+    nextLink = None
     resp = requests.get(url)
     html = resp.text
     soup = BeautifulSoup(html)
@@ -30,7 +33,11 @@ def process_page(url):
                 print href
                 download_and_save_file(
                     href, os.path.join(data_dir, t, href.split('/')[-1]))
+            elif link.string is not None and 'next' in link.string:
+                nextLink = href
+    return nextLink
 
 if __name__ == '__main__':
     url = raw_input('Enter the URL: ')
-    process_page(url)
+    while True :
+        url = process_page(url)
