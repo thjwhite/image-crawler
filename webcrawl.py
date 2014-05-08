@@ -5,6 +5,8 @@ import os
 import errno
 import time
 import sqlite3
+import Queue
+from urlparse import urlparse, urlunparse
 
 img_types = ['jpg', 'jpeg', 'png', 'gif', 'tif', 'tiff']
 data_dir = os.path.join(os.path.expanduser('~'), 'webcrawled')
@@ -22,7 +24,7 @@ def download_and_save_file(url, filepath):
 def process_page(url):
     print "Now processing: " + url
     t = str(int(time.time()))
-    nextLink = None
+    nextLinks = []
     resp = requests.get(url)
     html = resp.text
     soup = BeautifulSoup(html)
@@ -34,10 +36,27 @@ def process_page(url):
                 download_and_save_file(
                     href, os.path.join(data_dir, t, href.split('/')[-1]))
             elif link.string is not None and 'next' in link.string:
-                nextLink = href
-    return nextLink
+                nextLinks.append(href)
+    return nextLinks
+
+def fix_url(url):
+    scheme, netloc, path, params, query, fragment = urlparse(url, 'http')
+    if netloc == '':
+        if not path.startswith('www'):
+            netloc = 'www.' + path
+            path = ''
+        else:
+            netloc = path
+            path = ''
+    return urlunparse((scheme, netloc, path, params, query, fragment))
 
 if __name__ == '__main__':
     url = raw_input('Enter the URL: ')
-    while True :
-        url = process_page(url)
+    url_queue = Queue.Queue()
+    url_queue.put(fix_url(url))
+    while not url_queue.empty():
+        url = url_queue.get()
+        if url is not None :
+            for l in process_page(url):
+                url_queue.put(l)
+    print "No more 'next' links!"
