@@ -5,9 +5,11 @@ class ImageDatabase:
 
     def __init__(self, filepath):
         self.db_file = filepath
-        self.conn = sqlite3.connect(self.db_file)
         if not os.path.exists(self.db_file):
+            self.conn = sqlite3.connect(self.db_file)
             self.initialize_tables()
+        else:
+            self.conn = sqlite3.connect(self.db_file)
 
     def initialize_tables(self):
         self.conn.execute("""
@@ -34,11 +36,15 @@ class ImageDatabase:
     def create_image_entry(self, url, name, sess_time, byte_size):
         self.conn.execute("""
             INSERT INTO images VALUES (?, ?, ?, ?, NULL);
-        """, (url, name, sess_time, bytes_size))
+        """, (url, name, sess_time, byte_size))
+        self.conn.commit()
 
     def read_image_entry(self):
         cur = self.conn.cursor()
-
+        cur.execute("""
+            SELECT * FROM images;
+        """)
+        print cur.fetchall()
 
     def update_image(self):
         pass
