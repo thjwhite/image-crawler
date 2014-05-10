@@ -5,14 +5,10 @@ import errno
 import time
 import Queue
 from urlparse import urlparse, urlunparse
-from database import ImageDatabase
-
-IMG_TYPES = ['jpg', 'jpeg', 'png', 'gif', 'tif', 'tiff']
-DATA_DIR = os.path.join(os.path.expanduser('~'), 'webcrawled/images')
-DATABASE_FILE = os.path.join(DATA_DIR, 'crawled.db')
+from database import ImageDatabase, IMG_TYPES, DATA_DIR, DATABASE_FILE
 
 
-def download_and_save_file(url, filepath):
+def download_and_save_file(url, filepath, db):
     r = requests.get(url)
     try:
         os.makedirs('/'.join(filepath.split('/')[0:-1]))
@@ -21,10 +17,12 @@ def download_and_save_file(url, filepath):
             raise
     with open(filepath, 'wb+') as f:
         f.write(r.content)
-    print len(r.content)
+    name = filepath.split('/')[-1]
+    sess_time = filepath.split('/')[-2]
+    db.create_image_entry(url, name, sess_time, len(r.content))
 
 
-def process_page(url):
+def process_page(url, db):
     print "Now processing: " + url
     t = str(int(time.time()))
     nextLinks = []
@@ -37,9 +35,11 @@ def process_page(url):
             if href.split('.')[-1] in IMG_TYPES:
                 print href
                 download_and_save_file(
-                    href, os.path.join(DATA_DIR, t, href.split('/')[-1]))
-            elif link.string is not None and 'next' in link.string:
-                nextLinks.append(href)
+                    href, os.path.join(DATA_DIR, t, href.split('/')[-1]), db)
+            elif link.string is not None and \
+                link.string.strip().startswith('next'):
+                    print link.string
+                    nextLinks.append(href)
     return nextLinks
 
 
@@ -56,13 +56,15 @@ def fix_url(url):
 
 
 def main():
+    db = ImageDatabase(DATABASE_FILE)
     url = raw_input('Enter the URL: ')
     url_queue = Queue.Queue()
     url_queue.put(fix_url(url))
     while not url_queue.empty():
         url = url_queue.get()
         if url is not None:
-            for l in process_page(url):
+            newLinks = process_page(url, db)
+            for l in newLinks:
                 url_queue.put(l)
     print "No more 'next' links!"
 

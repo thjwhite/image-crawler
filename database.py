@@ -1,11 +1,22 @@
 import sqlite3
 import os
+import errno
+
+IMG_TYPES = ['jpg', 'jpeg', 'png', 'gif', 'tif', 'tiff']
+DATA_DIR = os.path.join(os.path.expanduser('~'), 'webcrawled', 'images')
+DATABASE_FILE = \
+    os.path.join(os.path.expanduser('~'), 'webcrawled', 'crawled.db')
 
 class ImageDatabase:
 
     def __init__(self, filepath):
         self.db_file = filepath
         if not os.path.exists(self.db_file):
+            try:
+                os.makedirs('/'.join(filepath.split('/')[0:-1]))
+            except OSError as exception:
+                if exception.errno != errno.EEXIST:
+                    raise
             self.conn = sqlite3.connect(self.db_file)
             self.initialize_tables()
         else:
@@ -31,11 +42,14 @@ class ImageDatabase:
                 pages_crawled INTEGER
             );
             """)
+        self.conn.execute("""
+                INSERT INTO stat VALUES (?, 0, 0, 0);
+            """, DATA_DIR)
         self.conn.commit()
 
     def create_image_entry(self, url, name, sess_time, byte_size):
         self.conn.execute("""
-            INSERT INTO images VALUES (?, ?, ?, ?, NULL);
+            INSERT OR IGNORE INTO images VALUES (?, ?, ?, ?, NULL);
         """, (url, name, sess_time, byte_size))
         self.conn.commit()
 
