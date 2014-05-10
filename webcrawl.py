@@ -40,6 +40,7 @@ def process_page(url, db):
                 link.string.strip().startswith('next'):
                     print link.string
                     nextLinks.append(href)
+    db.inc_pages_crawled()
     return nextLinks
 
 
